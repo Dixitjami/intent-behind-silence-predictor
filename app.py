@@ -1,6 +1,7 @@
 import os
 import re
 from html import escape
+from sklearn.utils.validation import check_is_fitted
 
 import joblib
 import numpy as np
@@ -14,6 +15,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model = joblib.load(os.path.join(BASE_DIR, "model.pkl"))
 tfidf = joblib.load(os.path.join(BASE_DIR, "tfidf.pkl"))
 label_encoder = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+
+# ✅ ensure tfidf is trained (CRITICAL FOR DEPLOYMENT)
+try:
+    check_is_fitted(tfidf)
+except:
+    st.error("❌ TF-IDF is not fitted. Please upload correct trained tfidf.pkl")
+    st.stop()
 
 EXAMPLES = {
     "Choose an example": "",
@@ -72,7 +80,12 @@ def get_reliability_note(ranked):
 
 
 def build_features(message, delay_minutes):
-    text_vec = tfidf.transform([clean_message(message)])
+    try:
+        text_vec = tfidf.transform([clean_message(message)])
+    except:
+        st.error("❌ TF-IDF transform failed. Model not trained properly.")
+        st.stop()
+
     delay_norm = min(max(delay_minutes, 0), 2880) / 2880
     return hstack([text_vec, np.array([[delay_norm]])])
 
