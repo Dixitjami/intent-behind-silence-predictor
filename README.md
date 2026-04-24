@@ -1,6 +1,6 @@
 # Intent Behind Silence Predictor
 
-A Streamlit NLP app that predicts the likely intent behind a delayed reply using a saved TF-IDF vectorizer, logistic regression model, and label encoder.
+A Streamlit NLP app that predicts the likely intent behind delayed message replies using TF-IDF, Logistic Regression, and probability visualization.
 
 ## Files
 
