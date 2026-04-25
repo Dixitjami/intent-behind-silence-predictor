@@ -1,27 +1,21 @@
 import os
 import re
 from html import escape
-from sklearn.utils.validation import check_is_fitted
+
 
 import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
-from scipy.sparse import hstack
+
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 model = joblib.load(os.path.join(BASE_DIR, "model.pkl"))
-tfidf = joblib.load(os.path.join(BASE_DIR, "tfidf.pkl"))
-label_encoder = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+label_encoder = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))    
 
-# ✅ ensure tfidf is trained (CRITICAL FOR DEPLOYMENT)
-try:
-    check_is_fitted(tfidf)
-except:
-    st.error("❌ TF-IDF is not fitted. Please upload correct trained tfidf.pkl")
-    st.stop()
+
 
 EXAMPLES = {
     "Choose an example": "",
@@ -79,15 +73,7 @@ def get_reliability_note(ranked):
     return "The leading class is meaningfully ahead of the alternatives."
 
 
-def build_features(message, delay_minutes):
-    try:
-        text_vec = tfidf.transform([clean_message(message)])
-    except:
-        st.error("❌ TF-IDF transform failed. Model not trained properly.")
-        st.stop()
 
-    delay_norm = min(max(delay_minutes, 0), 2880) / 2880
-    return hstack([text_vec, np.array([[delay_norm]])])
 
 
 def predict_intent(message, delay_minutes):
@@ -97,20 +83,26 @@ def predict_intent(message, delay_minutes):
         raise ValueError(
             f"Model expects {expected_features} features, but app created {features.shape[1]}."
         )
+delay_norm = min(max(delay_minutes, 0), 2880) / 2880
 
-    pred = model.predict(features)[0]
-    probabilities = model.predict_proba(features)[0]
-    class_ids = getattr(model, "classes_", np.arange(len(probabilities)))
-    labels = label_encoder.inverse_transform(class_ids)
-    order = np.argsort(probabilities)[::-1]
+input_df = pd.DataFrame({
+    "text": [clean_message(message)],
+    "delay": [delay_norm]
+})
 
-    return {
-        "prediction": label_encoder.inverse_transform([pred])[0],
-        "confidence": float(np.max(probabilities)),
-        "labels": labels,
-        "probabilities": probabilities,
-        "ranked": [(str(labels[index]), float(probabilities[index])) for index in order],
-    }
+pred = model.predict(input_df)[0]
+probabilities = model.predict_proba(input_df)[0]
+
+labels = label_encoder.inverse_transform(model.classes_)
+order = np.argsort(probabilities)[::-1]
+
+return {
+    "prediction": label_encoder.inverse_transform([pred])[0],
+    "confidence": float(np.max(probabilities)),
+    "labels": labels,
+    "probabilities": probabilities,
+    "ranked": [(str(labels[i]), float(probabilities[i])) for i in order],
+}
 
 
 def render_probability_rows(labels, probabilities):
